@@ -146,12 +146,13 @@ static BOOL drawIcon(IconKind kind, NSRect rect, NSString* text) {
     
     if (kind == IconKindFancyOutline || kind == IconKindFancyFilled) {
         NSRect redBar = rect;
-        redBar.origin.y = redBar.size.height - 5;
-        redBar.size.height = 5;
+        redBar.origin.y = redBar.size.height - 4;
+        redBar.size.height = 4;
         [[NSColor redColor] set];
         
         NSBezierPath* path = [NSBezierPath bezierPathWithRect:NSInsetRect(redBar, 3.5, 0.0)];
         [path fill];
+        [path stroke];
     }
     
     return YES;

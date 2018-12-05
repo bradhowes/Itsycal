@@ -59,7 +59,7 @@
             [_iconKind setLabel:@"None" forSegment:index];
         }
         else {
-            NSImage* image = makeIcon(index, @"31");
+            NSImage* image = makeIcon(index, [@(index) stringValue]);
             [_iconKind setImage:image forSegment:index];
         }
     }
