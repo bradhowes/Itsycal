@@ -10,14 +10,14 @@
 #import "Themer.h"
 #import "Sizer.h"
 #import "MoUtils.h"
+#import "IconGenerator.h"
 
 @implementation PrefsAppearanceVC
 {
-    NSButton *_useOutlineIcon;
+    NSSegmentedControl *_iconKind;
     NSButton *_showMonth;
     NSButton *_showDayOfWeek;
     NSTextField *_dateTimeFormat;
-    NSButton *_hideIcon;
     HighlightPicker *_highlight;
     NSButton *_showEventDots;
     NSButton *_showWeeks;
@@ -42,19 +42,40 @@
         return chkbx;
     };
 
+    NSButtonCell *prototype = [NSButtonCell new];
+    [prototype setTitle:@"Watermelons"];
+    [prototype setButtonType:NSRadioButton];
+    
+    _iconKind = [NSSegmentedControl new];
+    _iconKind.translatesAutoresizingMaskIntoConstraints = NO;
+    _iconKind.target = self;
+    _iconKind.action = @selector(didChangeIconKind:);
+    _iconKind.segmentStyle = NSSegmentStyleTexturedSquare;
+    _iconKind.segmentCount = IconKindCount;
+
+    for (NSInteger index = IconKindNone; index < IconKindCount; ++index) {
+        if (index == IconKindNone) {
+            [_iconKind setLabel:@"None" forSegment:index];
+        }
+        else {
+            NSImage* image = makeIcon(index, @"31");
+            [_iconKind setImage:image forSegment:index];
+        }
+    }
+
+    [v addSubview:_iconKind];
+    
     // Checkboxes
-    _useOutlineIcon = chkbx(NSLocalizedString(@"Use outline icon", @""));
     _showMonth = chkbx(NSLocalizedString(@"Show month in icon", @""));
     _showDayOfWeek = chkbx(NSLocalizedString(@"Show day of week in icon", @""));
     _showEventDots = chkbx(NSLocalizedString(@"Show event dots", @""));
     _showWeeks = chkbx(NSLocalizedString(@"Show calendar weeks", @""));
     _showLocation = chkbx(NSLocalizedString(@"Show event location", @""));
-    _hideIcon = chkbx(NSLocalizedString(@"Hide icon", @""));
     _bigger = chkbx(NSLocalizedString(@"Use larger text", @""));
 
     // Datetime format text field
     _dateTimeFormat = [NSTextField textFieldWithString:@""];
-    _dateTimeFormat.translatesAutoresizingMaskIntoConstraints = false;
+    _dateTimeFormat.translatesAutoresizingMaskIntoConstraints = NO;
     _dateTimeFormat.placeholderString = NSLocalizedString(@"Datetime pattern", @"");
     _dateTimeFormat.refusesFirstResponder = YES;
     _dateTimeFormat.bezelStyle = NSTextFieldRoundedBezel;
@@ -105,14 +126,13 @@
         [_themePopup itemAtIndex:1].tag = 2; // Dark
     }
     [v addSubview:_themePopup];
-    
-    MoVFLHelper *vfl = [[MoVFLHelper alloc] initWithSuperview:v metrics:@{@"m": @20} views:NSDictionaryOfVariableBindings(_bigger, _useOutlineIcon, _showMonth, _showDayOfWeek, _showEventDots, _showWeeks, _showLocation, _dateTimeFormat, helpButton, _hideIcon, _highlight, themeLabel, _themePopup)];
-    [vfl :@"V:|-m-[_useOutlineIcon]-[_showMonth]-[_showDayOfWeek]-m-[_dateTimeFormat]-[_hideIcon]-m-[_themePopup]-m-[_highlight]-m-[_showEventDots]-[_showLocation]-[_showWeeks]-m-[_bigger]-m-|"];
-    [vfl :@"H:|-m-[_useOutlineIcon]-(>=m)-|"];
+
+    MoVFLHelper *vfl = [[MoVFLHelper alloc] initWithSuperview:v metrics:@{@"m": @20} views:NSDictionaryOfVariableBindings(_bigger, _iconKind, _showMonth, _showDayOfWeek, _showEventDots, _showWeeks, _showLocation, _dateTimeFormat, helpButton, _highlight, themeLabel, _themePopup)];
+    [vfl :@"V:|-m-[_iconKind]-[_showMonth]-[_showDayOfWeek]-m-[_dateTimeFormat]-[_themePopup]-m-[_highlight]-m-[_showEventDots]-[_showLocation]-[_showWeeks]-m-[_bigger]-m-|"];
+    [vfl :@"H:|-m-[_iconKind]-(>=m)-|"];
     [vfl :@"H:|-m-[_showMonth]-(>=m)-|"];
     [vfl :@"H:|-m-[_showDayOfWeek]-(>=m)-|"];
     [vfl :@"H:|-m-[_dateTimeFormat]-[helpButton]-m-|" :NSLayoutFormatAlignAllCenterY];
-    [vfl :@"H:|-m-[_hideIcon]-(>=m)-|"];
     [vfl :@"H:|-m-[_highlight]-(>=m)-|"];
     [vfl :@"H:|-m-[themeLabel]-[_themePopup]-(>=m)-|" :NSLayoutFormatAlignAllFirstBaseline];
     [vfl :@"H:|-m-[_showEventDots]-(>=m)-|"];
@@ -128,15 +148,9 @@
     [super viewWillAppear];
 
     // Bindings for icon preferences
-    [_useOutlineIcon bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kUseOutlineIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
+    [_iconKind bind:@"selectedSegment" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kIconKind] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
     [_showMonth bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kShowMonthInIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
     [_showDayOfWeek bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kShowDayOfWeekInIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
-    [_hideIcon bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kHideIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
-
-    // Bind icon prefs enabled state to hide icon's value
-    [_useOutlineIcon bind:@"enabled" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kHideIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES), NSValueTransformerNameBindingOption: NSNegateBooleanTransformerName}];
-    [_showMonth bind:@"enabled" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kHideIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES), NSValueTransformerNameBindingOption: NSNegateBooleanTransformerName}];
-    [_showDayOfWeek bind:@"enabled" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kHideIcon] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES), NSValueTransformerNameBindingOption: NSNegateBooleanTransformerName}];
 
     // Binding for datetime format
     [_dateTimeFormat bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kClockFormat] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES), NSMultipleValuesPlaceholderBindingOption: _dateTimeFormat.placeholderString, NSNoSelectionPlaceholderBindingOption: _dateTimeFormat.placeholderString, NSNotApplicablePlaceholderBindingOption: _dateTimeFormat.placeholderString, NSNullPlaceholderBindingOption: _dateTimeFormat.placeholderString}];
@@ -160,8 +174,6 @@
     // Bindings for size
     [_bigger bind:@"value" toObject:[NSUserDefaultsController sharedUserDefaultsController] withKeyPath:[@"values." stringByAppendingString:kSizePreference] options:@{NSContinuouslyUpdatesValueBindingOption: @(YES)}];
     
-    [self updateHideIconState];
-
     // We don't want _dateTimeFormat to be first responder.
     [self.view.window makeFirstResponder:nil];
 }
@@ -171,38 +183,17 @@
     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"https://mowglii.com/itsycal/datetime.html"]];
 }
 
-- (void)updateHideIconState
-{
-    NSString *dateTimeFormat = _dateTimeFormat.stringValue;
-    if (dateTimeFormat == nil || [dateTimeFormat isEqualToString:@""]) {
-        [_hideIcon setState:0];
-        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:kHideIcon];
-        // Hack alert:
-        // We call -performSelector... instead of calling _hideIcon's
-        // -setEnabled: directly. Calling directly didn't work. Perhaps
-        // this has to do with the fact that _hideIcon's value is bound
-        // to NSUserDefaults which is mutated. By calling -setEnabled on
-        // the next turn of the runloop, we are able to disbale _hideIcon.
-        [self performSelectorOnMainThread:@selector(disableHideIcon:) withObject:nil waitUntilDone:NO];
-    }
-    else {
-        [_hideIcon setEnabled:YES];
-    }
-}
-
-- (void)disableHideIcon:(id)sender
-{
-    [_hideIcon setEnabled:NO];
-}
-
-- (void)controlTextDidChange:(NSNotification *)obj
-{
-    [self updateHideIconState];
-}
-
 - (void)didChangeHighlight:(HighlightPicker *)picker
 {
     [[NSUserDefaults standardUserDefaults] setInteger:picker.selectedDOWs forKey:kHighlightedDOWs];
+}
+
+- (void)didChangeIconKind:(NSSegmentedControl *)control
+{
+    IconKind iconKind = control.selectedSegment;
+    [[NSUserDefaults standardUserDefaults] setInteger:iconKind forKey:kIconKind];
+    [_showMonth setEnabled:iconKind != IconKindNone];
+    [_showDayOfWeek setEnabled:iconKind != IconKindNone];
 }
 
 @end

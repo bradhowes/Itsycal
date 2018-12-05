@@ -30,20 +30,23 @@
     [defaults registerDefaults:@{
         kPinItsycal:           @(NO),
         kShowWeeks:            @(NO),
+        kIconKind:             @(IconKindBasicOutline),
         kHighlightedDOWs:      @0,
         kShowEventDays:        @7,
         kWeekStartDOW:         @0, // Sun=0, Mon=1,... (MoCalendar.h)
         kShowMonthInIcon:      @(NO),
         kShowDayOfWeekInIcon:  @(NO),
         kShowEventDots:        @(YES),
-        kThemePreference:      @(defaultThemePref),
-        kHideIcon:             @(NO)
+        kThemePreference:      @(defaultThemePref)
     }];
     
+    NSInteger validIcon = MIN(MAX([defaults integerForKey:kIconKind], 0), 3);
+    [defaults setInteger:validIcon forKey:kIconKind];
+
     // Constrain kShowEventDays to values 0...9 in (unlikely) case it is invalid.
     NSInteger validDays = MIN(MAX([defaults integerForKey:kShowEventDays], 0), 9);
     [defaults setInteger:validDays forKey:kShowEventDays];
-    
+
     // Set kThemePreference to defaultThemePref in the unlikely case it's invalid.
     NSInteger themePref = [defaults integerForKey:kThemePreference];
     if (themePref < defaultThemePref || themePref > 2) {
@@ -61,6 +64,9 @@
     [self checkIfRunFromApplicationsFolder];
 #endif
 
+    // 0.??.? introduced a new way to select icon to show
+    [self iconKindFixup];
+
     // 0.11.1 introduced a new way to highlight columns in the calendar.
     [self weekendHighlightFixup];
     
@@ -70,7 +76,7 @@
 
     // Register keyboard shortcut.
     [[MASShortcutBinder sharedBinder] bindShortcutWithDefaultsKey:kKeyboardShortcut toAction:^{
-         [(ViewController *)_wc.contentViewController keyboardShortcutActivated];
+        [(ViewController *)self->_wc.contentViewController keyboardShortcutActivated];
      }];
 
     // This call instantiates the Sizer shared object and then
@@ -164,6 +170,26 @@
     [defaults removeObjectForKey:@"HighlightWeekend"];
     [defaults removeObjectForKey:@"WeekendIsFridaySaturday"];
     [defaults removeObjectForKey:@"WeekendIsSaturdaySunday"];
+}
+
+// Convert from kUse
+// (HighlightWeekend, WeekendIsFridaySaturday, WeekendIsSaturdaySunday) and
+// a hardcoded list of countries with Fri/Sat weekends to the method
+// of allowing the user to specify highlighted DOWs. If the user had
+// HighlightWeekend == YES, migrate their highlight settings. In either
+// case, remove the old default keys.
+- (void)iconKindFixup
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSNumber *useOutlineIcon = [defaults objectForKey:@"UseOutlineIcon"];
+    NSNumber *hideIcon = [defaults objectForKey:@"HideIcon"];
+    
+    if (useOutlineIcon || hideIcon) {
+        IconKind kind = [hideIcon boolValue] ? IconKindNone : ([useOutlineIcon boolValue] ? IconKindBasicOutline : IconKindBasicFilled);
+        [defaults setInteger:kind forKey:kIconKind];
+        [defaults removeObjectForKey:@"UseOutlineIcon"];
+        [defaults removeObjectForKey:@"HideIcon"];
+    }
 }
 
 // Itsycal 0.11.11 uses ThemePreference instead of ThemeIndex to

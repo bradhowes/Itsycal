@@ -16,11 +16,19 @@ extern NSString * const kShowWeeks;
 extern NSString * const kWeekStartDOW;
 extern NSString * const kHighlightedDOWs;
 extern NSString * const kKeyboardShortcut;
-extern NSString * const kUseOutlineIcon;
+extern NSString * const kIconKind;
 extern NSString * const kShowMonthInIcon;
 extern NSString * const kShowDayOfWeekInIcon;
 extern NSString * const kAllowOutsideApplicationsFolder;
 extern NSString * const kClockFormat;
-extern NSString * const kHideIcon;
 extern NSString * const kShowLocation;
 extern NSString * const kShowEventDots;
+
+typedef NS_ENUM(NSUInteger, IconKind) {
+    IconKindNone = 0,
+    IconKindBasicOutline,
+    IconKindBasicFilled,
+    IconKindFancyOutline,
+    IconKindFancyFilled,
+    IconKindCount
+};

@@ -19,6 +19,7 @@
 #import "MoButton.h"
 #import "MoVFLHelper.h"
 #import "Sparkle/SUUpdater.h"
+#import "IconGenerator.h"
 
 @implementation ViewController
 {
@@ -43,7 +44,7 @@
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kShowEventDays];
-    [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kUseOutlineIcon];
+    [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kIconKind];
     [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kShowMonthInIcon];
     [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kShowDayOfWeekInIcon];
     [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:kClockFormat];
@@ -360,10 +361,18 @@
 - (void)createStatusItem
 {
     _statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-    _statusItem.button.target = self;
-    _statusItem.button.action = @selector(statusItemClicked:);
-    _statusItem.highlightMode = NO; // Deprecated in 10.10, but what is alternative?
+    // _statusItem.button.target = self;
+    // _statusItem.button.action = @selector(statusItemClicked:);
+    _statusItem.highlightMode = YES; // Deprecated in 10.10, but what is alternative?
 
+    [NSEvent addLocalMonitorForEventsMatchingMask:(NSEventMaskLeftMouseDown) handler:^NSEvent * _Nullable(NSEvent * _Nonnull event) {
+        if (event.modifierFlags == 0 && event.window == self->_statusItem.button.window) {
+            [self statusItemClicked:self->_statusItem.button];
+            return nil;
+        }
+        return event;
+    }];
+    
     // Use monospaced font in case user sets custom clock format
     // so the status item doesn't move when the time changes.
     // We modify the default font with a font descriptor instead
@@ -425,7 +434,8 @@
 
 - (void)updateMenubarIcon
 {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:kHideIcon]) {
+    IconKind iconKind = [[NSUserDefaults standardUserDefaults] integerForKey:kIconKind];
+    if (iconKind == IconKindNone) {
         _statusItem.button.image = nil;
         _statusItem.button.imagePosition = NSNoImage;
     }
@@ -445,97 +455,22 @@
     if (text == nil) text = @"!";
 
     // Does user want outline icon or solid icon?
-    BOOL useOutlineIcon = [[NSUserDefaults standardUserDefaults] boolForKey:kUseOutlineIcon];
+    IconKind iconKind = [[NSUserDefaults standardUserDefaults] integerForKey:kIconKind];
 
     // Return cached icon if one is available.
-    NSString *iconName = [text stringByAppendingString:useOutlineIcon ? @" outline" : @" solid"];
+    NSString *iconName = [text stringByAppendingString:[@(iconKind) stringValue]];
+    
     NSImage *iconImage = [NSImage imageNamed:iconName];
     if (iconImage != nil) {
         return iconImage;
     }
 
-    // Measure text width
-    NSFont *font = [NSFont systemFontOfSize:11.5 weight:NSFontWeightBold];
-    CGRect textRect = [[[NSAttributedString alloc] initWithString:text attributes:@{NSFontAttributeName: font}] boundingRectWithSize:CGSizeMake(999, 999) options:0 context:nil];
-
-    // Icon width is at least 23 pts with 3 pt outside margins, 4 pt inside margins.
-    CGFloat width = MAX(3 + 4 + ceilf(NSWidth(textRect)) + 4 + 3, 23);
-    CGFloat height = 16;
-    iconImage = [NSImage imageWithSize:NSMakeSize(width, height) flipped:NO drawingHandler:^BOOL (NSRect rect) {
-
-        // Get image's context.
-        CGContextRef const ctx = [[NSGraphicsContext currentContext] graphicsPort];
-
-        if (useOutlineIcon) {
-
-            // Draw outlined icon image.
-
-            [[NSColor blackColor] set];
-            [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(rect, 3.5, 0.5) xRadius:2 yRadius:2] stroke];
-
-            // Turning off smoothing looks better (why??).
-            CGContextSetShouldSmoothFonts(ctx, false);
-
-            // Draw text.
-            NSMutableParagraphStyle *pstyle = [NSMutableParagraphStyle new];
-            pstyle.alignment = NSTextAlignmentCenter;
-            [text drawInRect:NSOffsetRect(rect, 0, -1) withAttributes:@{NSFontAttributeName: [NSFont systemFontOfSize:11.5 weight:NSFontWeightSemibold], NSParagraphStyleAttributeName: pstyle, NSForegroundColorAttributeName: [NSColor blackColor]}];
-        }
-        else {
-
-            // Draw solid background icon image.
-            // Based on cocoawithlove.com/2009/09/creating-alpha-masks-from-text-on.html
-
-            // Make scale adjustments.
-            NSRect deviceRect = CGContextConvertRectToDeviceSpace(ctx, rect);
-            CGFloat scale  = NSHeight(deviceRect)/NSHeight(rect);
-            CGFloat width  = scale * NSWidth(rect);
-            CGFloat height = scale * NSHeight(rect);
-            CGFloat outsideMargin = scale * 3;
-            CGFloat radius = scale * 2;
-            CGFloat fontSize = scale > 1 ? 24 : 11.5;
-
-            // Create a grayscale context for the mask
-            CGColorSpaceRef colorspace = CGColorSpaceCreateDeviceGray();
-            CGContextRef maskContext = CGBitmapContextCreate(NULL, width, height, 8, 0, colorspace, 0);
-            CGColorSpaceRelease(colorspace);
-
-            // Switch to the context for drawing.
-            // Drawing done in this context is scaled.
-            NSGraphicsContext *maskGraphicsContext = [NSGraphicsContext graphicsContextWithGraphicsPort:maskContext flipped:NO];
-            [NSGraphicsContext saveGraphicsState];
-            [NSGraphicsContext setCurrentContext:maskGraphicsContext];
-
-            // Draw a white rounded rect background into the mask context
-            [[NSColor whiteColor] setFill];
-            [[NSBezierPath bezierPathWithRoundedRect:NSInsetRect(deviceRect, outsideMargin, 0) xRadius:radius yRadius:radius] fill];
-
-            // Draw text.
-            NSMutableParagraphStyle *pstyle = [NSMutableParagraphStyle new];
-            pstyle.alignment = NSTextAlignmentCenter;
-            [text drawInRect:NSOffsetRect(deviceRect, 0, -1) withAttributes:@{NSFontAttributeName: [NSFont systemFontOfSize:fontSize weight:NSFontWeightBold], NSForegroundColorAttributeName: [NSColor blackColor], NSParagraphStyleAttributeName: pstyle}];
-
-            // Switch back to the image's context.
-            [NSGraphicsContext restoreGraphicsState];
-            CGContextRelease(maskContext);
-
-            // Create an image mask from our mask context.
-            CGImageRef alphaMask = CGBitmapContextCreateImage(maskContext);
-
-            // Fill the image, clipped by the mask.
-            CGContextClipToMask(ctx, rect, alphaMask);
-            [[NSColor blackColor] set];
-            NSRectFill(rect);
-
-            CGImageRelease(alphaMask);
-        }
-
-        return YES;
-    }];
-    [iconImage setTemplate:YES];
+    iconImage = makeIcon(iconKind, text);
     [iconImage setName:iconName];
+
     return iconImage;
 }
+
 
 - (void)positionItsycalWindow
 {
@@ -630,6 +565,7 @@
     }
     if ([self.itsycalWindow occlusionState] & NSWindowOcclusionStateVisible) {
         [self.itsycalWindow orderOut:self];
+        [_statusItem.button highlight:NO];
     }
     else {
         [self showItsycalWindow];
@@ -650,12 +586,14 @@
     [self positionItsycalWindow];
     [self.itsycalWindow makeKeyAndOrderFront:self];
     [self.itsycalWindow makeFirstResponder:_moCal];
+    [_statusItem.button highlight:YES];
 }
 
 - (void)cancel:(id)sender
 {
     // User pressed 'esc'.
     [self.itsycalWindow orderOut:self];
+    [_statusItem.button highlight:NO];
 }
 
 - (void)windowDidResize:(NSNotification *)notification
@@ -667,6 +605,7 @@
 {
     if (_btnPin.state == NSOffState) {
         [self.itsycalWindow orderOut:self];
+        [_statusItem.button highlight:NO];
     }
 }
 
@@ -969,15 +908,15 @@
     // Day changed notification
     [[NSNotificationCenter defaultCenter] addObserverForName:NSCalendarDayChangedNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         MoDate today = [self todayDate];
-        _moCal.todayDate = today;
-        _moCal.selectedDate = today;
+        self->_moCal.todayDate = today;
+        self->_moCal.selectedDate = today;
         [self updateMenubarIcon];
     }];
     
     // Timezone changed notification
     [[NSNotificationCenter defaultCenter] addObserverForName:NSSystemTimeZoneDidChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         [self updateMenubarIcon];
-        [_ec refetchAll];
+        [self->_ec refetchAll];
     }];
     
     // Locale notifications
@@ -988,14 +927,14 @@
     // System clock notification
     [[NSNotificationCenter defaultCenter] addObserverForName:NSSystemClockDidChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
         [self updateMenubarIcon];
-        [_ec refetchAll];
+        [self->_ec refetchAll];
     }];
 
     // Wake from sleep notification
     [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self selector:@selector(updateMenubarIcon) name:NSWorkspaceDidWakeNotification object:nil];
 
     // Observe NSUserDefaults for preference changes
-    for (NSString *keyPath in @[kShowEventDays, kUseOutlineIcon, kShowMonthInIcon, kShowDayOfWeekInIcon, kHideIcon, kClockFormat]) {
+    for (NSString *keyPath in @[kShowEventDays, kIconKind, kShowMonthInIcon, kShowDayOfWeekInIcon, kClockFormat]) {
         [[NSUserDefaults standardUserDefaults] addObserver:self forKeyPath:keyPath options:NSKeyValueObservingOptionNew context:NULL];
     }
 }
@@ -1008,10 +947,9 @@
     if ([keyPath isEqualToString:kShowEventDays]) {
         [self updateAgenda];
     }
-    else if ([keyPath isEqualToString:kUseOutlineIcon] ||
+    else if ([keyPath isEqualToString:kIconKind] ||
              [keyPath isEqualToString:kShowMonthInIcon] ||
-             [keyPath isEqualToString:kShowDayOfWeekInIcon] ||
-             [keyPath isEqualToString:kHideIcon]) {
+             [keyPath isEqualToString:kShowDayOfWeekInIcon]) {
         [self updateMenubarIcon];
     }
     else if ([keyPath isEqualToString:kClockFormat]) {
