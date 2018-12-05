@@ -23,6 +23,7 @@ extern NSString * const kAllowOutsideApplicationsFolder;
 extern NSString * const kClockFormat;
 extern NSString * const kShowLocation;
 extern NSString * const kShowEventDots;
+extern NSString * const kShowMonthOutline;
 
 typedef NS_ENUM(NSUInteger, IconKind) {
     IconKindNone = 0,

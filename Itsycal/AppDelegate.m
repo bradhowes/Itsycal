@@ -37,7 +37,8 @@
         kShowMonthInIcon:      @(NO),
         kShowDayOfWeekInIcon:  @(NO),
         kShowEventDots:        @(YES),
-        kThemePreference:      @(defaultThemePref)
+        kThemePreference:      @(defaultThemePref),
+        kShowMonthOutline:     @(YES)
     }];
     
     NSInteger validIcon = MIN(MAX([defaults integerForKey:kIconKind], 0), 3);

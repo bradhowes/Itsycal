@@ -24,3 +24,4 @@ NSString * const kClockFormat = @"ClockFormat";
 // NSString * const kHideIcon = @"HideIcon";
 NSString * const kShowLocation = @"ShowLocation";
 NSString * const kShowEventDots = @"kShowEventDots";
+NSString * const kShowMonthOutline = @"ShowMonthOutline";
